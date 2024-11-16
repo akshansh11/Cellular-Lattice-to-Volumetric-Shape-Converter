@@ -38,87 +38,94 @@ if uploaded_file:
     st.subheader("Thresholded Image for Lattice Structure")
     st.image(thresholded, caption="Processed Cellular Lattice", use_column_width=True)
 
-    # Extract lattice points from the thresholded image (non-zero pixel locations)
-    lattice_points = np.column_stack(np.where(thresholded > 127))  # Extract the coordinates of white pixels (lattice)
+    # Generate lattice structure based on volume and connectivity
+    lattice_points = np.column_stack(np.where(thresholded > 127))  # Get the points
+    lattice_points_normalized = lattice_points / np.max(lattice_points, axis=0)  # Normalize the points to [0, 1]
 
-    # Normalize lattice points to fit into the 3D volume
-    lattice_points_normalized = lattice_points / np.max(lattice_points, axis=0)  # Normalize to [0, 1] range
-
-    # Generate 3D Shape
-    st.subheader("Generated Volumetric Shape")
+    # Create continuous lattice structure (mesh grid)
+    lattice_nodes = []
+    lattice_edges = []
+    
     if shape_choice == "Cube":
-        mesh = trimesh.creation.box(extents=(length, length, length))
-    elif shape_choice == "Cylinder":
-        mesh = trimesh.creation.cylinder(radius=radius, height=height)
-    elif shape_choice == "Sphere":
-        mesh = trimesh.creation.icosphere(radius=radius)
-
-    # Convert Trimesh to Plotly Mesh3D
-    vertices = np.array(mesh.vertices)
-    faces = np.array(mesh.faces)
-    x, y, z = vertices[:, 0], vertices[:, 1], vertices[:, 2]
-    i, j, k = faces[:, 0], faces[:, 1], faces[:, 2]
-
-    # Create lattice as small spheres (or cubes) to overlay on the volumetric shape
-    lattice_radius = 0.5  # Adjust size of lattice points (small spheres)
-
-    # Depending on shape, distribute lattice points across the entire volume
-
-    if shape_choice == "Cube":
-        # Spread the points over the 3D volume of the cube
-        lattice_x = lattice_points_normalized[:, 1] * length  # Scale to the cube dimensions
-        lattice_y = lattice_points_normalized[:, 0] * length
-        lattice_z = np.random.uniform(0, length, size=lattice_x.shape)  # Randomly place in Z-axis for the cube
+        # Create a 3D grid for the cube
+        for i in range(0, len(lattice_points_normalized), 3):
+            x = lattice_points_normalized[i][1] * length
+            y = lattice_points_normalized[i][0] * length
+            z = np.random.uniform(0, length)  # Randomly distribute along Z-axis
+            lattice_nodes.append((x, y, z))
+        
+        # Connectivity - Add edges between nodes
+        for i in range(len(lattice_nodes) - 1):
+            if np.random.random() < 0.2:  # Random connectivity, adjust probability as needed
+                lattice_edges.append((i, i + 1))  # Connect node i to node i + 1
 
     elif shape_choice == "Cylinder":
-        # For cylinder, map the lattice points to the cylindrical coordinates
-        lattice_x = lattice_points_normalized[:, 1] * radius  # Scale to the cylinder radius
-        lattice_y = lattice_points_normalized[:, 0] * radius
-        lattice_z = np.random.uniform(0, height, size=lattice_x.shape)  # Randomly place in Z-axis for the cylinder
+        # Create cylindrical lattice points
+        for i in range(0, len(lattice_points_normalized), 3):
+            x = lattice_points_normalized[i][1] * radius
+            y = lattice_points_normalized[i][0] * radius
+            z = np.random.uniform(0, height)
+            lattice_nodes.append((x, y, z))
+        
+        # Connectivity - Add edges between nodes in the cylindrical volume
+        for i in range(len(lattice_nodes) - 1):
+            if np.random.random() < 0.2:
+                lattice_edges.append((i, i + 1))
 
     elif shape_choice == "Sphere":
-        # For sphere, convert the normalized lattice points into spherical coordinates
+        # Generate spherical lattice points
         theta = np.linspace(0, 2 * np.pi, len(lattice_points_normalized))
-        phi = np.arccos(2 * lattice_points_normalized[:, 0] - 1)  # Map points to spherical coords
-        lattice_x = radius * np.sin(phi) * np.cos(theta)
-        lattice_y = radius * np.sin(phi) * np.sin(theta)
-        lattice_z = radius * np.cos(phi)
+        phi = np.arccos(2 * lattice_points_normalized[:, 0] - 1)
+        
+        for i in range(len(lattice_points_normalized)):
+            x = radius * np.sin(phi[i]) * np.cos(theta[i])
+            y = radius * np.sin(phi[i]) * np.sin(theta[i])
+            z = radius * np.cos(phi[i])
+            lattice_nodes.append((x, y, z))
+        
+        # Connectivity - Add edges between nodes in the spherical volume
+        for i in range(len(lattice_nodes) - 1):
+            if np.random.random() < 0.2:
+                lattice_edges.append((i, i + 1))
 
-    # Plot the shape and lattice
+    # Convert lattice nodes and edges to mesh
+    nodes = np.array(lattice_nodes)
+    edges = np.array(lattice_edges)
+
+    # Create a plotly 3D scatter plot with lattice nodes and edges
     fig = go.Figure()
 
-    # 3D Mesh for Volumetric Shape
-    fig.add_trace(go.Mesh3d(
-        x=x,
-        y=y,
-        z=z,
-        i=i,
-        j=j,
-        k=k,
-        opacity=0.5,
-        color="cyan",
-        name="Volumetric Shape"
+    # Plot nodes as small spheres
+    fig.add_trace(go.Scatter3d(
+        x=nodes[:, 0],
+        y=nodes[:, 1],
+        z=nodes[:, 2],
+        mode='markers',
+        marker=dict(size=3, color="red", opacity=0.7),
+        name="Lattice Nodes"
     ))
 
-    # Lattice points as small spheres
-    fig.add_trace(go.Scatter3d(
-        x=lattice_x,
-        y=lattice_y,
-        z=lattice_z,
-        mode='markers',
-        marker=dict(size=4, color="red", opacity=0.7),
-        name="Lattice Points"
-    ))
+    # Plot edges as lines
+    for edge in edges:
+        fig.add_trace(go.Scatter3d(
+            x=[nodes[edge[0]][0], nodes[edge[1]][0]],
+            y=[nodes[edge[0]][1], nodes[edge[1]][1]],
+            z=[nodes[edge[0]][2], nodes[edge[1]][2]],
+            mode='lines',
+            line=dict(color="blue", width=2),
+            name="Lattice Edges"
+        ))
 
     fig.update_layout(
         scene=dict(aspectmode="data"),
         margin=dict(l=0, r=0, b=0, t=0),
-        title="Volumetric Shape with Lattice"
+        title="Volumetric Shape with Lattice Structure"
     )
 
     st.plotly_chart(fig, use_container_width=True)
 
     # Provide Download Option for the 3D Model
     st.subheader("Download the 3D Model")
-    model_bytes = mesh.export(file_type='stl')
+    # Export to a 3D file format
+    model_bytes = trimesh.Trimesh(vertices=nodes, faces=edges).export(file_type='stl')
     st.download_button("Download STL File", model_bytes, file_name="volumetric_shape_with_lattice.stl")
