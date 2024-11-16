@@ -61,9 +61,28 @@ if uploaded_file:
 
     # Create lattice as small spheres (or cubes) to overlay on the volumetric shape
     lattice_radius = 0.5  # Adjust size of lattice points (small spheres)
-    lattice_x = lattice_points_normalized[:, 1] * length  # Scale the lattice points to 3D shape
-    lattice_y = lattice_points_normalized[:, 0] * length
-    lattice_z = np.zeros_like(lattice_x)  # Place lattice points on the base plane, adjust for 3D shapes if needed
+
+    # Depending on shape, distribute lattice points across the entire volume
+
+    if shape_choice == "Cube":
+        # Spread the points over the 3D volume of the cube
+        lattice_x = lattice_points_normalized[:, 1] * length  # Scale to the cube dimensions
+        lattice_y = lattice_points_normalized[:, 0] * length
+        lattice_z = np.random.uniform(0, length, size=lattice_x.shape)  # Randomly place in Z-axis for the cube
+
+    elif shape_choice == "Cylinder":
+        # For cylinder, map the lattice points to the cylindrical coordinates
+        lattice_x = lattice_points_normalized[:, 1] * radius  # Scale to the cylinder radius
+        lattice_y = lattice_points_normalized[:, 0] * radius
+        lattice_z = np.random.uniform(0, height, size=lattice_x.shape)  # Randomly place in Z-axis for the cylinder
+
+    elif shape_choice == "Sphere":
+        # For sphere, convert the normalized lattice points into spherical coordinates
+        theta = np.linspace(0, 2 * np.pi, len(lattice_points_normalized))
+        phi = np.arccos(2 * lattice_points_normalized[:, 0] - 1)  # Map points to spherical coords
+        lattice_x = radius * np.sin(phi) * np.cos(theta)
+        lattice_y = radius * np.sin(phi) * np.sin(theta)
+        lattice_z = radius * np.cos(phi)
 
     # Plot the shape and lattice
     fig = go.Figure()
