@@ -11,6 +11,7 @@ st.title("Cellular Lattice to Volumetric Shape Converter")
 st.sidebar.header("Options")
 shape_choice = st.sidebar.selectbox("Select the volumetric shape", ["Cube", "Cylinder", "Sphere"])
 
+# User Inputs for Shape Parameters
 if shape_choice == "Cube":
     length = st.sidebar.number_input("Edge Length (mm)", value=10.0, step=1.0, min_value=1.0)
 elif shape_choice == "Cylinder":
@@ -26,7 +27,7 @@ if uploaded_file:
     # Load the image
     file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
     image = cv2.imdecode(file_bytes, cv2.IMREAD_GRAYSCALE)
-    
+
     st.subheader("Uploaded Cellular Lattice Image")
     st.image(image, caption="Cellular Lattice Structure", use_column_width=True)
     
@@ -53,8 +54,7 @@ if uploaded_file:
     i, j, k = faces[:, 0], faces[:, 1], faces[:, 2]
 
     fig = go.Figure(
-        data=[
-            go.Mesh3d(
+        data=[go.Mesh3d(
                 x=x,
                 y=y,
                 z=z,
@@ -63,13 +63,15 @@ if uploaded_file:
                 k=k,
                 opacity=0.5,
                 color="cyan"
-            )
-        ]
+            )]
     )
-    fig.update_layout(scene=dict(aspectmode="data"))
+    fig.update_layout(
+        scene=dict(aspectmode="data"),
+        margin=dict(l=0, r=0, b=0, t=0)
+    )
     st.plotly_chart(fig, use_container_width=True)
 
-    # Provide Download Option
+    # Provide Download Option for the 3D Model
     st.subheader("Download the 3D Model")
     model_bytes = mesh.export(file_type='stl')
     st.download_button("Download STL File", model_bytes, file_name="volumetric_shape.stl")
